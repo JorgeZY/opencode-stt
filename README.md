@@ -1,0 +1,31 @@
+# OpenCode STT
+
+Windows 本地语音输入助手。按住 `Ctrl+Alt+Space` 录音，松开后使用本地 SenseVoice 识别，再把结果粘贴到当前获得焦点的 OpenCode 文本输入框。
+
+## 安装
+
+```powershell
+npm install
+npm run models
+python -m pip install --no-deps funasr-onnx
+python -m pip install kaldi-native-fbank sentencepiece PyYAML librosa
+python -m pip install "git+https://github.com/fxsjy/jieba.git"
+npm start
+```
+
+模型通过 ModelScope 的 `iic/SenseVoiceSmall-onnx` 下载到项目目录的 `models/sensevoice/`。识别使用本机 Python 的 `funasr-onnx` 运行时；录音仅保存在内存中。
+
+`funasr-onnx` 的 `jieba` 依赖在部分公司网络中会被 PyPI 策略拦截，因此安装指令直接使用官方 Git 仓库。
+
+## 使用
+
+1. 将焦点放在 OpenCode TUI 的文本输入框。
+2. 运行 `npm start`。
+3. 按住 `Ctrl+Alt+Space` 说出任务，松开按键。
+4. 转写文本会自动粘贴到输入框；检查后按 Enter 发送。
+
+录音只保存在内存中。模型文件存放于 `models/sensevoice/`。粘贴依赖当前活动窗口，录音期间不要切换到其他应用。
+
+## Hardware Button
+
+Use a programmable USB macro key as a held `Ctrl+Alt+Space` shortcut. See [HARDWARE.md](HARDWARE.md) for the macro configuration, Windows login autostart, and the later RP2040 dedicated-button path.

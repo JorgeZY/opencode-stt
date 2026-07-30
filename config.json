@@ -1,0 +1,10 @@
+{
+  "shortcut": "Ctrl+Alt+Space",
+  "language": "auto",
+  "threads": 2,
+  "minimumRecordingSeconds": 0.3,
+  "modelDirectory": "models/sensevoice",
+  "modelFile": "model_quant.onnx",
+  "tokensFile": "tokens.json",
+  "minimumTextLength": 2
+}
