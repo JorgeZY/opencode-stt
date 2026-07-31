@@ -1,6 +1,6 @@
 $text = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($args[0]))
-$replace = $args[1] -eq 'replace'
+$previousLength = [int]$args[1]
 Set-Clipboard -Value $text
 $shell = New-Object -ComObject WScript.Shell
-if ($replace) { $shell.SendKeys('^z') }
+if ($previousLength -gt 0) { $shell.SendKeys('{BACKSPACE ' + $previousLength + '}') }
 $shell.SendKeys('^v')

@@ -5,8 +5,11 @@
   "minimumRecordingSeconds": 0.3,
   "previewIntervalMs": 800,
   "previewMinimumSeconds": 0.8,
+  "streamingModelDirectory": "models/sherpa-onnx-streaming-paraformer-bilingual-zh-en",
+  "tailCaptureMs": 120,
   "modelDirectory": "models/sensevoice",
   "modelFile": "model_quant.onnx",
   "tokensFile": "tokens.json",
-  "minimumTextLength": 2
+  "minimumTextLength": 2,
+  "correctionsFile": "corrections.json"
 }

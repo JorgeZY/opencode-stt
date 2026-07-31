@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node src/main.js",
     "models": "powershell -ExecutionPolicy Bypass -File scripts/download-models.ps1",
+    "models:streaming": "powershell -ExecutionPolicy Bypass -File scripts/download-streaming-model.ps1",
     "autostart": "powershell -ExecutionPolicy Bypass -File scripts/install-autostart.ps1",
     "autostart:remove": "powershell -ExecutionPolicy Bypass -File scripts/remove-autostart.ps1",
-    "check": "node --check src/main.js && node --check src/recognizer.js && node --check src/opencode.js"
+    "check": "node --check src/main.js && node --check src/recognizer.js && node --check src/opencode.js && node --check src/diagnose.js && node --check src/visual.js && node --check src/streaming-preview.js",
+    "diagnose": "node src/diagnose.js"
   },
   "dependencies": {
     "node-cpal": "0.1.1",

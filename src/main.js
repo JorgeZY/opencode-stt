@@ -1,25 +1,40 @@
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cpal from 'node-cpal';
 import sherpaOnnxModule from 'sherpa-onnx-node';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 import { Recognizer } from './recognizer.js';
+import { createVisual } from './visual.js';
+import { StreamingPreview } from './streaming-preview.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = JSON.parse(await readFile(path.join(root, 'config.json'), 'utf8'));
+const corrections = JSON.parse(await readFile(path.join(root, config.correctionsFile), 'utf8'));
 const sherpaOnnx = sherpaOnnxModule.default ?? sherpaOnnxModule;
 const recognizer = new Recognizer(config, root);
+const streamingPreview = new StreamingPreview(sherpaOnnx, config, root);
+const visual = createVisual(root);
 let recording = false;
 let stream;
 let resampler;
 let chunks = [];
 let previewTimer;
 let previewRunning = false;
-let previewPasted = false;
+let previewLength = 0;
 let recordingId = 0;
+let streamingText = '';
+let lastMeterUpdate = 0;
 const pressed = new Set();
+
+const instance = net.createServer();
+instance.on('error', () => {
+  console.error('OpenCode STT is already running.');
+  process.exit(1);
+});
+await new Promise((resolve) => instance.listen(37651, '127.0.0.1', resolve));
 
 function status(message) {
   console.log(`[${new Date().toLocaleTimeString()}] ${message}`);
@@ -35,25 +50,42 @@ function initializeMicrophone() {
     format: 'f32'
   }, (samples) => {
     // Keep the audio device warm; only retain samples while the shortcut is held.
-    if (recording) chunks.push(resampler.resample(samples));
+    if (!recording) return;
+    const resampled = resampler.resample(samples);
+    chunks.push(resampled);
+    const now = Date.now();
+    if (now - lastMeterUpdate > 50) {
+      let energy = 0;
+      for (const sample of resampled) energy += sample * sample;
+      visual('', undefined, Math.min(1, Math.sqrt(energy / resampled.length) * 6));
+      lastMeterUpdate = now;
+    }
+    if (streamingPreview.available) updateStreamingPreview(resampled);
   });
   status(`麦克风已就绪: ${input.name}`);
+  visual('READY  Hold F8 to speak', 'LightSteelBlue');
 }
 
 function startRecording() {
   if (recording) return;
   chunks = [];
   recording = true;
-  previewPasted = false;
+  previewLength = 0;
+  streamingText = '';
+  streamingPreview.start();
   recordingId += 1;
-  previewTimer = setInterval(() => void preview(recordingId), config.previewIntervalMs);
+  if (!streamingPreview.available) previewTimer = setInterval(() => void preview(recordingId), config.previewIntervalMs);
   status('录音中...');
+  visual(streamingPreview.available ? 'STREAMING  Listening in real time' : 'RECORDING  Listening...', 'MediumSpringGreen');
 }
 
 async function stopRecording() {
   if (!recording) return;
+  if (previewTimer) clearInterval(previewTimer);
+  // Retain the final phoneme that often arrives just after key release.
+  await new Promise((resolve) => setTimeout(resolve, config.tailCaptureMs));
   recording = false;
-  clearInterval(previewTimer);
+  streamingPreview.finish();
   const samples = recordedSamples();
   chunks = [];
   if (samples.length / 16000 < config.minimumRecordingSeconds) {
@@ -61,14 +93,30 @@ async function stopRecording() {
     return;
   }
   status('识别中...');
-  const text = await recognizer.transcribe(samples, config.language);
+  visual('FINALIZING  SenseVoice is correcting text...', 'Gold');
+  const text = correct(await recognizer.transcribe(samples, config.language));
   if (!/[\p{L}\p{N}]/u.test(text) || text.length < config.minimumTextLength) {
     status('未识别到语音。');
     return;
   }
   status(`转写: ${text}`);
-  await paste(text, previewPasted);
+  await paste(text, previewLength);
+  previewLength = 0;
   status('已将最终结果粘贴到当前输入框，按 Enter 发送。');
+  visual('PASTED  Review text and press Enter', 'LightSteelBlue');
+}
+
+function updateStreamingPreview(samples) {
+  const text = correct(streamingPreview.accept(samples));
+  if (!text || text === streamingText) return;
+  streamingText = text;
+  void paste(text, previewLength)
+    .then(() => {
+      previewLength = [...text].length;
+      status(`实时转写: ${text}`);
+      visual(`STREAMING  ${text}`, 'DeepSkyBlue');
+    })
+    .catch((error) => status(`实时粘贴失败: ${error.message}`));
 }
 
 function recordedSamples() {
@@ -82,17 +130,24 @@ function recordedSamples() {
   return samples;
 }
 
+function correct(text) {
+  let result = text;
+  for (const [from, to] of Object.entries(corrections)) result = result.replaceAll(from, to);
+  return result;
+}
+
 async function preview(id) {
   if (!recording || previewRunning || id !== recordingId) return;
   const samples = recordedSamples();
   if (samples.length / 16000 < config.previewMinimumSeconds) return;
   previewRunning = true;
   try {
-    const text = await recognizer.transcribe(samples, config.language);
+    const text = correct(await recognizer.transcribe(samples, config.language));
     if (recording && id === recordingId && /[\p{L}\p{N}]/u.test(text) && text.length >= config.minimumTextLength) {
-      await paste(text, previewPasted);
-      previewPasted = true;
+      await paste(text, previewLength);
+      previewLength = [...text].length;
       status(`临时转写: ${text}`);
+      visual(`PREVIEW  ${text}`, 'DeepSkyBlue');
     }
   } catch (error) {
     status(`临时识别失败: ${error.message}`);
@@ -101,7 +156,7 @@ async function preview(id) {
   }
 }
 
-async function paste(text, replace = false) {
+async function paste(text, previousLength = 0) {
   const payload = Buffer.from(text, 'utf8').toString('base64');
   const { execFile } = await import('node:child_process');
   await promisify(execFile)('powershell', [
@@ -109,7 +164,7 @@ async function paste(text, replace = false) {
     '-ExecutionPolicy', 'Bypass',
     '-File', path.join(root, 'scripts', 'replace-preview.ps1'),
     payload,
-    replace ? 'replace' : 'append'
+    String(previousLength)
   ], { windowsHide: true });
 }
 
@@ -130,9 +185,14 @@ uIOhook.on('keyup', (event) => {
 uIOhook.start();
 
 initializeMicrophone();
-status(`OpenCode STT 已启动。按住 ${config.shortcut} 录音，松开后转写并粘贴到当前输入框。`);
+status(streamingPreview.available
+  ? 'Sherpa 中英流式预览已启用。'
+  : 'Sherpa 流式模型未安装，使用 SenseVoice 累积预览。');
+status(`OpenCode STT 已启动。按住 ${config.shortcut} 录音，松开后最终识别并粘贴到当前输入框。`);
 process.on('SIGINT', () => {
   if (recording) cpal.closeStream(stream);
   uIOhook.stop();
+  instance.close();
+  visual.close();
   process.exit(0);
 });
