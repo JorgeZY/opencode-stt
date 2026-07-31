@@ -1,8 +1,10 @@
 {
-  "shortcut": "Ctrl+Alt+Space",
+  "shortcut": "F8",
   "language": "auto",
   "threads": 2,
   "minimumRecordingSeconds": 0.3,
+  "previewIntervalMs": 800,
+  "previewMinimumSeconds": 0.8,
   "modelDirectory": "models/sensevoice",
   "modelFile": "model_quant.onnx",
   "tokensFile": "tokens.json",

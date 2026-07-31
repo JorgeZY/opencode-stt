@@ -3,12 +3,12 @@
 ## Phase 1: USB Macro Key
 
 Use any programmable USB macro key that behaves as a standard HID keyboard.
-Configure its only key as a held shortcut, not a one-shot macro:
+Configure its only key as a held `F8` key, not a one-shot macro:
 
 | Button event | Keyboard action |
 | --- | --- |
-| Press | Hold `Ctrl` + `Alt` + `Space` |
-| Release | Release `Space`, `Alt`, and `Ctrl` |
+| Press | Hold `F8` |
+| Release | Release `F8` |
 
 The computer helper is already configured for this shortcut. The key must send distinct press and release events; a macro that taps the shortcut will create an almost empty recording.
 
@@ -37,8 +37,8 @@ powershell -ExecutionPolicy Bypass -File scripts/remove-autostart.ps1
 Replace the macro key with a Raspberry Pi Pico or Seeed XIAO RP2040, one momentary switch, and a USB cable. Firmware should expose a USB HID keyboard and implement the same behavior:
 
 ```text
-button pressed  -> keyDown(Ctrl), keyDown(Alt), keyDown(Space)
-button released -> keyUp(Space), keyUp(Alt), keyUp(Ctrl)
+button pressed  -> keyDown(F8)
+button released -> keyUp(F8)
 ```
 
 No change is needed in the Windows application, STT model, or OpenCode workflow. QMK, CircuitPython, and TinyUSB firmware are all suitable because the device only needs to emulate a standard USB keyboard.

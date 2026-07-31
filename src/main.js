@@ -15,6 +15,10 @@ let recording = false;
 let stream;
 let resampler;
 let chunks = [];
+let previewTimer;
+let previewRunning = false;
+let previewPasted = false;
+let recordingId = 0;
 const pressed = new Set();
 
 function status(message) {
@@ -40,19 +44,17 @@ function startRecording() {
   if (recording) return;
   chunks = [];
   recording = true;
+  previewPasted = false;
+  recordingId += 1;
+  previewTimer = setInterval(() => void preview(recordingId), config.previewIntervalMs);
   status('录音中...');
 }
 
 async function stopRecording() {
   if (!recording) return;
   recording = false;
-  const length = chunks.reduce((total, chunk) => total + chunk.length, 0);
-  const samples = new Float32Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    samples.set(chunk, offset);
-    offset += chunk.length;
-  }
+  clearInterval(previewTimer);
+  const samples = recordedSamples();
   chunks = [];
   if (samples.length / 16000 < config.minimumRecordingSeconds) {
     status('录音太短，已取消。');
@@ -65,23 +67,54 @@ async function stopRecording() {
     return;
   }
   status(`转写: ${text}`);
-  await paste(text);
-  status('已粘贴到当前获得焦点的输入框，按 Enter 发送。');
+  await paste(text, previewPasted);
+  status('已将最终结果粘贴到当前输入框，按 Enter 发送。');
 }
 
-async function paste(text) {
+function recordedSamples() {
+  const length = chunks.reduce((total, chunk) => total + chunk.length, 0);
+  const samples = new Float32Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    samples.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return samples;
+}
+
+async function preview(id) {
+  if (!recording || previewRunning || id !== recordingId) return;
+  const samples = recordedSamples();
+  if (samples.length / 16000 < config.previewMinimumSeconds) return;
+  previewRunning = true;
+  try {
+    const text = await recognizer.transcribe(samples, config.language);
+    if (recording && id === recordingId && /[\p{L}\p{N}]/u.test(text) && text.length >= config.minimumTextLength) {
+      await paste(text, previewPasted);
+      previewPasted = true;
+      status(`临时转写: ${text}`);
+    }
+  } catch (error) {
+    status(`临时识别失败: ${error.message}`);
+  } finally {
+    previewRunning = false;
+  }
+}
+
+async function paste(text, replace = false) {
   const payload = Buffer.from(text, 'utf8').toString('base64');
   const { execFile } = await import('node:child_process');
   await promisify(execFile)('powershell', [
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
-    '-File', path.join(root, 'scripts', 'paste.ps1'),
-    payload
+    '-File', path.join(root, 'scripts', 'replace-preview.ps1'),
+    payload,
+    replace ? 'replace' : 'append'
   ], { windowsHide: true });
 }
 
 function shortcutPressed() {
-  return pressed.has(UiohookKey.Ctrl) && pressed.has(UiohookKey.Alt) && pressed.has(UiohookKey.Space);
+  return pressed.has(UiohookKey.F8);
 }
 
 uIOhook.on('keydown', (event) => {
