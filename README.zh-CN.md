@@ -9,15 +9,21 @@ Windows 本地语音输入助手。按住 `F8` 录音，松开后使用本地 Se
 ```powershell
 npm install
 npm run models
-python -m pip install --no-deps funasr-onnx
-python -m pip install kaldi-native-fbank sentencepiece PyYAML librosa
-python -m pip install "git+https://github.com/fxsjy/jieba.git"
+python -m pip install funasr-onnx
 npm start
 ```
 
 模型通过 ModelScope 的 `iic/SenseVoiceSmall-onnx` 下载到项目目录的 `models/sensevoice/`。识别使用本机 Python 的 `funasr-onnx` 运行时；录音仅保存在内存中。
 
-`funasr-onnx` 的 `jieba` 依赖在部分公司网络中会被 PyPI 策略拦截，因此安装指令直接使用官方 Git 仓库。
+在普通网络环境中，`pip install funasr-onnx` 会自动安装 `kaldi-native-fbank`、`sentencepiece`、`PyYAML`、`librosa` 和 `jieba` 等依赖。
+
+如果所在网络阻止从 PyPI 下载 `jieba` 源码包，请改用以下备用安装命令：
+
+```powershell
+python -m pip install --no-deps funasr-onnx
+python -m pip install kaldi-native-fbank sentencepiece PyYAML librosa
+python -m pip install "git+https://github.com/fxsjy/jieba.git"
+```
 
 ## 使用
 

@@ -9,15 +9,21 @@ Windows local voice input assistant. Hold `F8` to record, release it to transcri
 ```powershell
 npm install
 npm run models
-python -m pip install --no-deps funasr-onnx
-python -m pip install kaldi-native-fbank sentencepiece PyYAML librosa
-python -m pip install "git+https://github.com/fxsjy/jieba.git"
+python -m pip install funasr-onnx
 npm start
 ```
 
 The model is downloaded from ModelScope (`iic/SenseVoiceSmall-onnx`) to `models/sensevoice/` in the project directory. Transcription runs with the local Python `funasr-onnx` runtime; recordings are kept in memory only.
 
-The `jieba` dependency of `funasr-onnx` may be blocked by PyPI policies on some corporate networks, so the installation command uses the official Git repository directly.
+On a normal network, `pip install funasr-onnx` automatically installs dependencies such as `kaldi-native-fbank`, `sentencepiece`, `PyYAML`, `librosa`, and `jieba`.
+
+If your network blocks the PyPI source package for `jieba`, use this fallback instead:
+
+```powershell
+python -m pip install --no-deps funasr-onnx
+python -m pip install kaldi-native-fbank sentencepiece PyYAML librosa
+python -m pip install "git+https://github.com/fxsjy/jieba.git"
+```
 
 ## Usage
 
