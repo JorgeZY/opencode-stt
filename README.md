@@ -1,8 +1,10 @@
 # OpenCode STT
 
-Windows 本地语音输入助手。按住 `F8` 录音，松开后使用本地 SenseVoice 识别，再把结果粘贴到当前获得焦点的 OpenCode 文本输入框。
+[中文](README.zh-CN.md) | English
 
-## 安装
+Windows local voice input assistant. Hold `F8` to record, release it to transcribe with the local SenseVoice model, and paste the result into the currently focused OpenCode text input.
+
+## Installation
 
 ```powershell
 npm install
@@ -13,19 +15,19 @@ python -m pip install "git+https://github.com/fxsjy/jieba.git"
 npm start
 ```
 
-模型通过 ModelScope 的 `iic/SenseVoiceSmall-onnx` 下载到项目目录的 `models/sensevoice/`。识别使用本机 Python 的 `funasr-onnx` 运行时；录音仅保存在内存中。
+The model is downloaded from ModelScope (`iic/SenseVoiceSmall-onnx`) to `models/sensevoice/` in the project directory. Transcription runs with the local Python `funasr-onnx` runtime; recordings are kept in memory only.
 
-`funasr-onnx` 的 `jieba` 依赖在部分公司网络中会被 PyPI 策略拦截，因此安装指令直接使用官方 Git 仓库。
+The `jieba` dependency of `funasr-onnx` may be blocked by PyPI policies on some corporate networks, so the installation command uses the official Git repository directly.
 
-## 使用
+## Usage
 
-1. 将焦点放在 OpenCode TUI 的文本输入框。
-2. 运行 `npm start`。
-3. 按住 `F8` 说出任务。约 0.8 秒后输入框开始显示临时转写，并持续更新。
-4. 松开按键后，完整录音会进行最终识别并覆盖临时文本；检查后按 Enter 发送。
+1. Focus the text input in the OpenCode TUI.
+2. Run `npm start`.
+3. Hold `F8` and speak your task. After about 0.8 seconds, the input begins showing an interim transcription and continues to update.
+4. When you release the key, the complete recording is transcribed again and replaces the interim text. Review it, then press Enter to send.
 
-录音只保存在内存中。模型文件存放于 `models/sensevoice/`。临时文本通过撤销上一次粘贴后重新粘贴实现更新，因此录音期间不要手动编辑输入框或切换到其他应用。
+Recordings are kept in memory only. Model files are stored in `models/sensevoice/`. Interim text is updated by undoing the previous paste and pasting the new result, so do not manually edit the input or switch to another application while recording.
 
 ## Hardware Button
 
-Use a programmable USB macro key as a held `Ctrl+Alt+Space` shortcut. See [HARDWARE.md](HARDWARE.md) for the macro configuration, Windows login autostart, and the later RP2040 dedicated-button path.
+Use a programmable USB macro key configured to hold `F8` and release `F8` when the button is released. See [HARDWARE.md](HARDWARE.md) for the macro configuration, Windows login autostart, and the later RP2040 dedicated-button path.
