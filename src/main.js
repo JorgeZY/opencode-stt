@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { promisify } from 'node:util';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +22,6 @@ let resampler;
 let chunks = [];
 let previewTimer;
 let previewRunning = false;
-let previewLength = 0;
 let recordingId = 0;
 let streamingText = '';
 let lastMeterUpdate = 0;
@@ -57,26 +55,25 @@ function initializeMicrophone() {
     if (now - lastMeterUpdate > 50) {
       let energy = 0;
       for (const sample of resampled) energy += sample * sample;
-      visual('', undefined, Math.min(1, Math.sqrt(energy / resampled.length) * 6));
+      visual.meter(Math.min(1, Math.sqrt(energy / resampled.length) * 6));
       lastMeterUpdate = now;
     }
     if (streamingPreview.available) updateStreamingPreview(resampled);
   });
   status(`麦克风已就绪: ${input.name}`);
-  visual('READY  Hold F8 to speak', 'LightSteelBlue');
+  visual('', 'LightSteelBlue');
 }
 
 function startRecording() {
   if (recording) return;
   chunks = [];
   recording = true;
-  previewLength = 0;
   streamingText = '';
   streamingPreview.start();
   recordingId += 1;
   if (!streamingPreview.available) previewTimer = setInterval(() => void preview(recordingId), config.previewIntervalMs);
   status('录音中...');
-  visual(streamingPreview.available ? 'STREAMING  Listening in real time' : 'RECORDING  Listening...', 'MediumSpringGreen');
+  visual('', 'MediumSpringGreen');
 }
 
 async function stopRecording() {
@@ -93,30 +90,24 @@ async function stopRecording() {
     return;
   }
   status('识别中...');
-  visual('FINALIZING  SenseVoice is correcting text...', 'Gold');
+  visual('', 'Gold');
   const text = correct(await recognizer.transcribe(samples, config.language));
   if (!/[\p{L}\p{N}]/u.test(text) || text.length < config.minimumTextLength) {
     status('未识别到语音。');
     return;
   }
   status(`转写: ${text}`);
-  await paste(text, previewLength);
-  previewLength = 0;
+  await visual.replace(text, 0);
   status('已将最终结果粘贴到当前输入框，按 Enter 发送。');
-  visual('PASTED  Review text and press Enter', 'LightSteelBlue');
+  visual('', 'LightSteelBlue');
 }
 
 function updateStreamingPreview(samples) {
   const text = correct(streamingPreview.accept(samples));
   if (!text || text === streamingText) return;
   streamingText = text;
-  void paste(text, previewLength)
-    .then(() => {
-      previewLength = [...text].length;
-      status(`实时转写: ${text}`);
-      visual(`STREAMING  ${text}`, 'DeepSkyBlue');
-    })
-    .catch((error) => status(`实时粘贴失败: ${error.message}`));
+  status(`实时转写: ${text}`);
+  visual(text, 'DeepSkyBlue');
 }
 
 function recordedSamples() {
@@ -144,28 +135,14 @@ async function preview(id) {
   try {
     const text = correct(await recognizer.transcribe(samples, config.language));
     if (recording && id === recordingId && /[\p{L}\p{N}]/u.test(text) && text.length >= config.minimumTextLength) {
-      await paste(text, previewLength);
-      previewLength = [...text].length;
       status(`临时转写: ${text}`);
-      visual(`PREVIEW  ${text}`, 'DeepSkyBlue');
+      visual(text, 'DeepSkyBlue');
     }
   } catch (error) {
     status(`临时识别失败: ${error.message}`);
   } finally {
     previewRunning = false;
   }
-}
-
-async function paste(text, previousLength = 0) {
-  const payload = Buffer.from(text, 'utf8').toString('base64');
-  const { execFile } = await import('node:child_process');
-  await promisify(execFile)('powershell', [
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-    '-File', path.join(root, 'scripts', 'replace-preview.ps1'),
-    payload,
-    String(previousLength)
-  ], { windowsHide: true });
 }
 
 function shortcutPressed() {

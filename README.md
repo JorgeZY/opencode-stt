@@ -29,12 +29,12 @@ python -m pip install "git+https://github.com/fxsjy/jieba.git"
 
 1. Focus the text input in the OpenCode TUI.
 2. Run `npm start`.
-3. Hold `F8` and speak your task. After about 0.8 seconds, the input begins showing an interim transcription and continues to update.
-4. When you release the key, the complete recording is transcribed again and replaces the interim text. Review it, then press Enter to send.
+3. Hold `F8` and speak your task. Streaming recognition appears in the desktop pet's speech bubble while recording.
+4. When you release the key, the complete recording is transcribed once by SenseVoice and pasted into the focused input. Review it, then press Enter to send.
 
-Recordings are kept in memory only. Model files are stored in `models/sensevoice/`. Interim text is updated by replacing only the characters inserted by this helper. Do not manually edit the input or switch to another application while recording.
+Recordings are kept in memory only. Model files are stored in `models/sensevoice/`. The helper intentionally does not inject interim text into the OpenCode TUI: terminal UIs do not expose a stable text range API, so replacing partial hypotheses can corrupt the user's input. Only the final transcription is pasted.
 
-A lightweight transparent desktop pet appears while the helper is running. It uses Python's built-in `tkinter`, not Electron or a browser runtime. The pet is always on top, draggable, and shows ready, recording, live preview, finalizing, and pasted states with a live audio-level animation.
+A lightweight transparent desktop pet appears while the helper is running. It uses Python's built-in `tkinter`. The pet is always on top and draggable. Its speech bubble appears only while streaming transcription is available, keeping interim text out of the OpenCode input.
 
 ## Streaming Preview Model
 

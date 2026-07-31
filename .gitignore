@@ -1,3 +1,4 @@
 node_modules/
 models/
 opencode-stt.log
+__pycache__/
